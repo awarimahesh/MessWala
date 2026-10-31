@@ -6,6 +6,7 @@ import com.messwala.backend.dto.RegisterRequest;
 import com.messwala.backend.entity.Role;
 import com.messwala.backend.entity.User;
 import com.messwala.backend.repository.UserRepository;
+import com.messwala.backend.security.JwtService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,14 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(UserRepository userRepository,
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -58,6 +63,7 @@ public class AuthService {
     }
 
     private AuthResponse toResponse(User user) {
-        return new AuthResponse(user.getId(), user.getName(), user.getEmail(), user.getRole());
+        return new AuthResponse(user.getId(), user.getName(), user.getEmail(),
+                user.getRole(), jwtService.generateToken(user));
     }
 }
