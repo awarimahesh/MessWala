@@ -33,6 +33,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/plans").hasRole("OWNER")
+                        .requestMatchers(HttpMethod.POST, "/api/menu").hasRole("OWNER")
                         .requestMatchers("/api/owner/**").hasRole("OWNER")
                         .requestMatchers("/api/deliveries/**").hasRole("DELIVERY")
                         .anyRequest().authenticated())
