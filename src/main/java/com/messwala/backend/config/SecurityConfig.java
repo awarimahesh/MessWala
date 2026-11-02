@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/error").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/plans").hasRole("OWNER")
                         .requestMatchers(HttpMethod.POST, "/api/menu").hasRole("OWNER")
+                        .requestMatchers("/api/subscriptions/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/owner/**").hasRole("OWNER")
                         .requestMatchers("/api/deliveries/**").hasRole("DELIVERY")
                         .anyRequest().authenticated())
