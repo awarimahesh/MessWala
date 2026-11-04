@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,5 +36,15 @@ public class SubscriptionController {
     @GetMapping("/my")
     public ResponseEntity<List<SubscriptionResponse>> mySubscriptions(Authentication authentication) {
         return ResponseEntity.ok(subscriptionService.mySubscriptions(authentication.getName()));
+    }
+
+    @PutMapping("/pause")
+    public ResponseEntity<SubscriptionResponse> pause(Authentication authentication) {
+        return ResponseEntity.ok(subscriptionService.pause(authentication.getName()));
+    }
+
+    @PutMapping("/resume")
+    public ResponseEntity<SubscriptionResponse> resume(Authentication authentication) {
+        return ResponseEntity.ok(subscriptionService.resume(authentication.getName()));
     }
 }

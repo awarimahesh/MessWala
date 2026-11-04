@@ -34,8 +34,7 @@ public class SubscriptionService {
 
     @Transactional
     public SubscriptionResponse subscribe(SubscriptionRequest request, String customerEmail) {
-        User customer = userRepository.findByEmail(customerEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        User customer = findCustomer(customerEmail);
 
         Plan plan = planRepository.findById(request.planId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found"));
@@ -67,13 +66,49 @@ public class SubscriptionService {
 
     @Transactional(readOnly = true)
     public List<SubscriptionResponse> mySubscriptions(String customerEmail) {
-        User customer = userRepository.findByEmail(customerEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        User customer = findCustomer(customerEmail);
 
         return subscriptionRepository.findByCustomerId(customer.getId())
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public SubscriptionResponse pause(String customerEmail) {
+        Subscription subscription = findCurrent(customerEmail);
+
+        if (subscription.getStatus() != SubscriptionStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Subscription is not active");
+        }
+
+        subscription.setStatus(SubscriptionStatus.PAUSED);
+        return toResponse(subscriptionRepository.save(subscription));
+    }
+
+    @Transactional
+    public SubscriptionResponse resume(String customerEmail) {
+        Subscription subscription = findCurrent(customerEmail);
+
+        if (subscription.getStatus() != SubscriptionStatus.PAUSED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Subscription is not paused");
+        }
+
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        return toResponse(subscriptionRepository.save(subscription));
+    }
+
+    private Subscription findCurrent(String customerEmail) {
+        User customer = findCustomer(customerEmail);
+        return subscriptionRepository
+                .findFirstByCustomerIdAndStatusIn(customer.getId(),
+                        List.of(SubscriptionStatus.ACTIVE, SubscriptionStatus.PAUSED))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No active subscription found"));
+    }
+
+    private User findCustomer(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
     }
 
     private SubscriptionResponse toResponse(Subscription s) {
