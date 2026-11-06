@@ -16,4 +16,6 @@ public interface SkipRepository extends JpaRepository<Skip, Long> {
     long countBySubscriptionIdAndDateBetween(Long subscriptionId, LocalDate from, LocalDate to);
 
     List<Skip> findBySubscriptionIdOrderByDateDesc(Long subscriptionId);
+
+    List<Skip> findByDateAndMealType(LocalDate date, MealType mealType);
 }
