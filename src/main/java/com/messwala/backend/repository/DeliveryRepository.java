@@ -1,6 +1,7 @@
 package com.messwala.backend.repository;
 
 import com.messwala.backend.entity.Delivery;
+import com.messwala.backend.entity.MealType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
@@ -11,4 +12,6 @@ public interface DeliveryRepository extends JpaRepository<Delivery, Long> {
     List<Delivery> findByDeliveryPersonIdAndDate(Long deliveryPersonId, LocalDate date);
 
     List<Delivery> findByDate(LocalDate date);
+
+    boolean existsBySubscriptionIdAndDateAndMealType(Long subscriptionId, LocalDate date, MealType mealType);
 }
