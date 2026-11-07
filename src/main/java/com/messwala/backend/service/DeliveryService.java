@@ -10,9 +10,13 @@ import com.messwala.backend.entity.User;
 import com.messwala.backend.repository.DeliveryRepository;
 import com.messwala.backend.repository.SkipRepository;
 import com.messwala.backend.repository.SubscriptionRepository;
+import com.messwala.backend.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -25,13 +29,19 @@ public class DeliveryService {
     private final SubscriptionRepository subscriptionRepository;
     private final SkipRepository skipRepository;
     private final DeliveryRepository deliveryRepository;
+    private final UserRepository userRepository;
+    private final Clock clock;
 
     public DeliveryService(SubscriptionRepository subscriptionRepository,
                            SkipRepository skipRepository,
-                           DeliveryRepository deliveryRepository) {
+                           DeliveryRepository deliveryRepository,
+                           UserRepository userRepository,
+                           Clock clock) {
         this.subscriptionRepository = subscriptionRepository;
         this.skipRepository = skipRepository;
         this.deliveryRepository = deliveryRepository;
+        this.userRepository = userRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -75,6 +85,48 @@ public class DeliveryService {
                 .sorted(Comparator.comparing(Delivery::getMealType).thenComparing(Delivery::getId))
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DeliveryResponse> todaysList(String area) {
+        LocalDate today = LocalDate.now(clock);
+
+        return deliveryRepository.findByDate(today).stream()
+                .filter(d -> area == null || area.isBlank()
+                        || area.equalsIgnoreCase(areaOf(d)))
+                .sorted(Comparator.comparing(this::areaOf, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(Delivery::getMealType)
+                        .thenComparing(Delivery::getId))
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public DeliveryResponse markDelivered(Long deliveryId, String staffEmail) {
+        User staff = userRepository.findByEmail(staffEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+
+        Delivery delivery = deliveryRepository.findById(deliveryId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Delivery not found"));
+
+        if (!delivery.getDate().equals(LocalDate.now(clock))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only today's deliveries can be marked as delivered");
+        }
+
+        if (delivery.getStatus() == DeliveryStatus.DELIVERED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Delivery already marked as delivered");
+        }
+
+        delivery.setStatus(DeliveryStatus.DELIVERED);
+        delivery.setDeliveryPerson(staff);
+
+        return toResponse(deliveryRepository.save(delivery));
+    }
+
+    private String areaOf(Delivery delivery) {
+        String area = delivery.getSubscription().getCustomer().getArea();
+        return area == null ? "" : area;
     }
 
     private boolean covers(Subscription subscription, MealType meal, LocalDate date) {
