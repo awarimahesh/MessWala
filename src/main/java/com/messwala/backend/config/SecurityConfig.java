@@ -40,6 +40,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/owner/**").hasRole("OWNER")
                         .requestMatchers("/api/deliveries/**").hasRole("DELIVERY")
                         .anyRequest().authenticated())
+
+
                 .addFilterBefore(new JwtAuthFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
