@@ -1,4 +1,4 @@
-package com.messwala.dto;
+package com.messwala.backend.dto;
 
 import java.math.BigDecimal;
 import java.util.List;

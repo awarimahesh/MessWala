@@ -1,12 +1,16 @@
 package com.messwala.backend.service;
 
 import com.messwala.backend.dto.BillResponse;
+import com.messwala.backend.dto.DueResponse;
+import com.messwala.backend.dto.DuesSummaryResponse;
 import com.messwala.backend.entity.Bill;
 import com.messwala.backend.entity.MealType;
 import com.messwala.backend.entity.PaymentStatus;
 import com.messwala.backend.entity.Plan;
 import com.messwala.backend.entity.Subscription;
 import com.messwala.backend.entity.User;
+import com.messwala.backend.exception.BadRequestException;
+import com.messwala.backend.exception.ResourceNotFoundException;
 import com.messwala.backend.repository.BillRepository;
 import com.messwala.backend.repository.SkipRepository;
 import com.messwala.backend.repository.SubscriptionRepository;
@@ -43,6 +47,8 @@ public class BillService {
         this.billRepository = billRepository;
         this.userRepository = userRepository;
     }
+
+    // ---------------- Day 14: bill generation ----------------
 
     @Transactional
     public List<BillResponse> generate(YearMonth month, boolean giveCredit) {
@@ -97,6 +103,38 @@ public class BillService {
                 .toList();
     }
 
+    // ---------------- Day 15: payment status and dues ----------------
+
+    @Transactional
+    public DueResponse markPaid(Long billId) {
+        Bill bill = billRepository.findById(billId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bill not found with id " + billId));
+
+        if (bill.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BadRequestException("Bill already paid");
+        }
+
+        bill.setPaymentStatus(PaymentStatus.PAID);
+        bill.setPaidOn(LocalDate.now());
+        return toDueResponse(billRepository.save(bill));
+    }
+
+    @Transactional(readOnly = true)
+    public DuesSummaryResponse getDues() {
+        List<DueResponse> dues = billRepository.findByPaymentStatus(PaymentStatus.PENDING)
+                .stream()
+                .map(this::toDueResponse)
+                .toList();
+
+        BigDecimal total = dues.stream()
+                .map(DueResponse::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new DuesSummaryResponse(dues.size(), total, dues);
+    }
+
+    // ---------------- helpers ----------------
+
     private BigDecimal calculate(Plan plan, int skipped, boolean giveCredit) {
         BigDecimal price = plan.getPricePerMonth();
 
@@ -113,78 +151,26 @@ public class BillService {
     }
 
     private BillResponse toResponse(Bill bill) {
-        Subscription subscription = bill.getSubscription();package com.messwala.service;
-
-import com.messwala.dto.DueResponse;
-import com.messwala.dto.DuesSummaryResponse;
-import com.messwala.entity.Bill;
-import com.messwala.entity.PaymentStatus;
-import com.messwala.exception.BadRequestException;
-import com.messwala.exception.ResourceNotFoundException;
-import com.messwala.repository.BillRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-
-        @Service
-        public class BillService {
-
-            private final BillRepository billRepository;
-
-            public BillService(BillRepository billRepository) {
-                this.billRepository = billRepository;
-            }
-
-            @Transactional
-            public DueResponse markPaid(Long billId) {
-                Bill bill = billRepository.findById(billId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Bill not found with id " + billId));
-
-                if (bill.getPaymentStatus() == PaymentStatus.PAID) {
-                    throw new BadRequestException("Bill already paid");
-                }
-
-                bill.setPaymentStatus(PaymentStatus.PAID);
-                bill.setPaidOn(LocalDate.now());
-                return toResponse(billRepository.save(bill));
-            }
-
-            @Transactional(readOnly = true)
-            public DuesSummaryResponse getDues() {
-                List<DueResponse> dues = billRepository.findByPaymentStatus(PaymentStatus.PENDING)
-                        .stream()
-                        .map(this::toResponse)
-                        .toList();
-
-                BigDecimal total = dues.stream()
-                        .map(DueResponse::getAmount)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                return new DuesSummaryResponse(dues.size(), total, dues);
-            }
-
-            private DueResponse toResponse(Bill b) {
-                var sub = b.getSubscription();
-                return new DueResponse(
-                        b.getId(),
-                        sub.getCustomer().getName(),
-                        sub.getCustomer().getPhone(),
-                        sub.getPlan().getName(),
-                        String.valueOf(b.getMonth()),
-                        b.getAmount(),
-                        b.getSkippedDays(),
-                        b.getPaymentStatus().name(),
-                        b.getPaidOn()
-                );
-            }
-        }
+        Subscription subscription = bill.getSubscription();
         Plan plan = subscription.getPlan();
         return new BillResponse(bill.getId(), subscription.getId(),
                 subscription.getCustomer().getName(), plan.getName(), bill.getMonth(),
                 plan.getPricePerMonth(), bill.getSkippedDays(), bill.getAmount(),
                 bill.getPaymentStatus(), bill.getPaidOn());
+    }
+
+    private DueResponse toDueResponse(Bill b) {
+        Subscription sub = b.getSubscription();
+        return new DueResponse(
+                b.getId(),
+                sub.getCustomer().getName(),
+                sub.getCustomer().getPhone(),
+                sub.getPlan().getName(),
+                b.getMonth(),
+                b.getAmount(),
+                b.getSkippedDays(),
+                b.getPaymentStatus().name(),
+                b.getPaidOn()
+        );
     }
 }
